@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Werkbon App</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--bg2:#f7f7f5;--bg3:#f0efec;
+  --text:#1a1a18;--text2:#6b6b67;--text3:#9b9b97;
+  --border:rgba(0,0,0,.12);--border2:rgba(0,0,0,.22);
+  --info-bg:#e6f1fb;--info-text:#185fa5;
+  --ok-bg:#eaf3de;--ok-text:#3b6d11;
+  --warn-bg:#faeeda;--warn-text:#854f0b;
+  --err-bg:#fcebeb;--err-text:#a32d2d;
+  --r:8px;--rl:12px;--accent:#378ADD;--green:#1D9E75;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1e1e1c;--bg2:#2a2a28;--bg3:#333331;
+  --text:#f0efe8;--text2:#a8a8a0;--text3:#6b6b67;
+  --border:rgba(255,255,255,.12);--border2:rgba(255,255,255,.22);
+  --info-bg:#0c2e4e;--info-text:#85b7eb;
+  --ok-bg:#173404;--ok-text:#97c459;
+  --warn-bg:#412402;--warn-text:#fac775;
+  --err-bg:#3a1010;--err-text:#f09595;
+}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--text);min-height:100vh}
+.app{max-width:520px;margin:0 auto;padding:1rem}
+.card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--rl);padding:1.25rem;margin-bottom:1rem}
+.stitle{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+.field{margin-bottom:10px}
+.field label{font-size:13px;color:var(--text2);display:block;margin-bottom:4px}
+.field input,.field textarea{width:100%;font-size:14px;padding:8px 10px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg2);color:var(--text);font-family:inherit;outline:none;transition:border-color .15s}
+.field input:focus,.field textarea:focus{border-color:var(--accent)}
+.field textarea{resize:vertical;min-height:64px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;padding:1rem 1.25rem;background:var(--bg);border:.5px solid var(--border);border-radius:var(--rl)}
+.hdr h1{font-size:20px;font-weight:600;letter-spacing:.04em}
+.hdr p{font-size:12px;color:var(--text2);margin-top:2px}
+.badge{display:inline-block;font-size:11px;padding:3px 10px;border-radius:var(--r);font-weight:500;background:var(--info-bg);color:var(--info-text)}
+.steps{display:flex;margin-bottom:1.25rem;background:var(--bg);border:.5px solid var(--border);border-radius:var(--rl);overflow:hidden}
+.step{flex:1;text-align:center;padding:10px 2px;font-size:10px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;line-height:1.3}
+.step:hover{background:var(--bg2);color:var(--text2)}
+.step.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;background:var(--info-bg)}
+.step.done{color:var(--ok-text);border-bottom-color:var(--green)}
+.upload-zone{border:1.5px dashed var(--border2);border-radius:var(--rl);padding:1.5rem;text-align:center;cursor:pointer;background:var(--bg2);transition:border-color .2s}
+.upload-zone:hover{border-color:var(--accent)}
+.upload-zone .ico{font-size:32px;margin-bottom:8px}
+.upload-zone p{font-size:13px;color:var(--text2)}
+.upload-zone strong{color:var(--accent)}
+.divider{text-align:center;font-size:12px;color:var(--text3);margin:10px 0}
+.time-disp{font-size:36px;font-weight:300;text-align:center;padding:16px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.time-ctrl{display:flex;gap:8px;justify-content:center;margin-bottom:4px}
+.btn{padding:8px 18px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg2);font-size:14px;cursor:pointer;font-family:inherit;color:var(--text);transition:all .15s}
+.btn:hover{background:var(--bg3)}
+.btn.primary{background:var(--accent);color:#fff;border-color:transparent}
+.btn.primary:hover{opacity:.9}
+.btn.stop-btn{background:var(--err-bg);color:var(--err-text);border-color:transparent}
+.btn.green{background:var(--green);color:#fff;border-color:transparent;flex:1}
+.btn.green:hover{opacity:.9}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-icon{background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:4px 6px;border-radius:4px}
+.btn-icon:hover{background:var(--bg2);color:var(--err-text)}
+.btn-add{width:100%;padding:8px;background:none;border:.5px dashed var(--border2);border-radius:var(--r);font-size:13px;color:var(--accent);cursor:pointer;margin-top:4px;font-family:inherit;transition:background .15s}
+.btn-add:hover{background:var(--info-bg)}
+.mat-card{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:8px;position:relative}
+.mat-card input{font-size:14px;padding:8px 10px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-family:inherit;width:100%;display:block;margin-top:4px}
+.mat-card label{font-size:11px;color:var(--text3);display:block;margin-top:8px}
+.mat-card label:first-of-type{margin-top:0}
+.mat-card .mat-num{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.mat-card .mat-num input{margin-top:0}
+.mat-card .btn-icon{position:absolute;top:8px;right:8px}
+.tv-row{display:grid;grid-template-columns:1fr 1fr 28px;gap:6px;align-items:end;margin-bottom:8px}
+.tv-row input[type=time]{font-size:13px;padding:6px 8px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg2);color:var(--text);font-family:inherit;width:100%}
+.tv-row label{font-size:11px;color:var(--text3);display:block;margin-bottom:3px}
+#sigCanvas{display:block;width:100%;height:190px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg);touch-action:none;cursor:crosshair}
+.sig-btns{display:flex;gap:8px;margin-top:8px}
+.btn-sig{flex:1;padding:8px;border:.5px solid var(--border2);border-radius:var(--r);background:none;font-size:13px;cursor:pointer;color:var(--text2);font-family:inherit;transition:background .15s}
+.btn-sig:hover{background:var(--bg2)}
+.btn-sig.save{background:var(--ok-bg);color:var(--ok-text);border-color:transparent}
+.sum-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:.5px solid var(--border);font-size:13px}
+.sum-row:last-child{border-bottom:none}
+.sum-label{color:var(--text2)}
+.sum-val{font-weight:500}
+.nav-btns{display:flex;gap:8px;margin-top:1rem}
+.btn-next{flex:1;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.btn-next:hover{opacity:.9}
+.btn-back{padding:12px 16px;background:none;border:.5px solid var(--border2);border-radius:var(--r);font-size:14px;cursor:pointer;color:var(--text2);font-family:inherit}
+.btn-back:hover{background:var(--bg2)}
+.hidden{display:none!important}
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:#1a1a18;color:#fff;padding:10px 22px;border-radius:var(--r);font-size:14px;display:none;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.2);white-space:nowrap}
+.alert{padding:10px 12px;border-radius:var(--r);font-size:13px;margin-bottom:10px;line-height:1.5}
+.alert.info{background:var(--info-bg);color:var(--info-text)}
+.alert.ok{background:var(--ok-bg);color:var(--ok-text)}
+.alert.warn{background:var(--warn-bg);color:var(--warn-text)}
+.alert.err{background:var(--err-bg);color:var(--err-text)}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:11px;background:var(--bg);border:.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--text);transition:background .15s}
+.google-btn:hover{background:var(--bg2)}
+.google-btn svg{flex-shrink:0}
+.account-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--ok-bg);border-radius:var(--r);margin-bottom:10px}
+.account-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;flex-shrink:0}
+.account-info{flex:1;min-width:0}
+.account-name{font-size:13px;font-weight:500;color:var(--ok-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.account-email{font-size:11px;color:var(--ok-text);opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.setup-step{display:flex;gap:12px;padding:10px 0;border-bottom:.5px solid var(--border)}
+.setup-step:last-child{border-bottom:none}
+.setup-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.setup-text{font-size:13px;color:var(--text2);line-height:1.6}
+.setup-text strong{color:var(--text);font-weight:500}
+.setup-text code{background:var(--bg2);padding:1px 5px;border-radius:4px;font-size:12px;font-family:monospace}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="hdr">
+    <div><h1>Werkbon</h1><p>Digitale werkbon — invullen &amp; ondertekenen</p></div>
+    <span class="badge" id="bonNr">WB-2026-001</span>
+  </div>
+
+  <div class="steps">
+    <div class="step active" onclick="goStep(0)">1.<br>Gegevens</div>
+    <div class="step" onclick="goStep(1)">2.<br>Tijd</div>
+    <div class="step" onclick="goStep(2)">3.<br>Materialen</div>
+    <div class="step" onclick="goStep(3)">4.<br>Handtekening</div>
+    <div class="step" onclick="goStep(4)">5.<br>Versturen</div>
+  </div>
+
+  <!-- STAP 0: Gegevens -->
+  <div id="step0">
+    <div class="card">
+      <div class="stitle">XML importeren</div>
+      <div class="upload-zone" onclick="document.getElementById('xmlFile').click()">
+        <div class="ico">📄</div>
+        <p><strong>Klik om XML te laden</strong></p>
+        <p>of sleep een bestand hierheen</p>
+      </div>
+      <input type="file" id="xmlFile" accept=".xml" style="display:none" onchange="loadXML(this)">
+      <div class="divider">of vul handmatig in</div>
+    </div>
+    <div class="card">
+      <div class="stitle">Klantgegevens</div>
+      <div class="field"><label>Klantnaam</label><input id="klantNaam" type="text" placeholder="Bedrijfsnaam / naam"></div>
+      <div class="field"><label>E-mailadres klant</label><input id="klantEmail" type="email" placeholder="klant@bedrijf.nl"></div>
+      <div class="row2">
+        <div class="field"><label>Telefoonnummer</label><input id="klantTel" type="tel" placeholder="+31 6 ..."></div>
+        <div class="field"><label>Referentie / opdrachtnr.</label><input id="klantRef" type="text" placeholder="Ref. nr."></div>
+      </div>
+      <div class="field"><label>Adres werklocatie</label><input id="werkAdres" type="text" placeholder="Straat + huisnummer, Plaats"></div>
+    </div>
+    <div class="card">
+      <div class="stitle">Omschrijving werkzaamheden</div>
+      <div class="field"><textarea id="werkOmschr" placeholder="Beschrijf de uitgevoerde werkzaamheden..."></textarea></div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn-next" onclick="goStep(1)">Volgende: Tijd →</button>
+    </div>
+  </div>
+
+  <!-- STAP 1: Tijd -->
+  <div id="step1" class="hidden">
+    <div class="card">
+      <div class="stitle">Stopwatch</div>
+      <div class="time-disp" id="timerDisp">00:00:00</div>
+      <div class="time-ctrl">
+        <button class="btn primary" id="btnStart" onclick="startTimer()">▶ Start</button>
+        <button class="btn stop-btn hidden" id="btnStop" onclick="stopTimer()">■ Stop</button>
+        <button class="btn" onclick="resetTimer()">↺ Reset</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="stitle">Tijdvakken handmatig</div>
+      <div id="tijdvakken"></div>
+      <button class="btn-add" onclick="addTijdvak()">+ Tijdvak toevoegen</button>
+    </div>
+    <div class="card">
+      <div class="stitle">Totaal</div>
+      <div class="sum-row"><span class="sum-label">Totale werktijd</span><span class="sum-val" id="totaalTijd">0:00 uur</span></div>
+      <div class="row2" style="margin-top:10px">
+        <div class="field"><label>Uurtarief (€)</label><input id="uurtarief" type="number" value="65" min="0" step="0.5" oninput="calcTotaalTijd()"></div>
+        <div class="field"><label>Totaal arbeid (€)</label><input id="totalArbeid" type="text" readonly style="font-weight:500;color:var(--ok-text)"></div>
+      </div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn-back" onclick="goStep(0)">←</button>
+      <button class="btn-next" onclick="goStep(2)">Volgende: Materialen →</button>
+    </div>
+  </div>
+
+  <!-- STAP 2: Materialen -->
+  <div id="step2" class="hidden">
+    <div class="card">
+      <div class="stitle">Gebruikte materialen</div>
+      <div id="materialenList"></div>
+      <button class="btn-add" onclick="addMateriaal()">+ Materiaal toevoegen</button>
+    </div>
+    <div class="card">
+      <div class="stitle">Kostenoverzicht</div>
+      <div class="sum-row"><span class="sum-label">Arbeid</span><span class="sum-val" id="sum1">€ 0,00</span></div>
+      <div class="sum-row"><span class="sum-label">Materialen</span><span class="sum-val" id="sum2">€ 0,00</span></div>
+      <div class="sum-row" style="padding-top:8px">
+        <span style="font-weight:500;font-size:14px">Totaal excl. BTW</span>
+        <span style="font-weight:600;font-size:15px" id="sum3">€ 0,00</span>
+      </div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn-back" onclick="goStep(1)">←</button>
+      <button class="btn-next" onclick="goStep(3)">Volgende: Handtekening →</button>
+    </div>
+  </div>
+
+  <!-- STAP 3: Handtekening -->
+  <div id="step3" class="hidden">
+    <div class="card">
+      <div class="stitle">Handtekening klant</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Teken hieronder ter bevestiging van de uitgevoerde werkzaamheden.</p>
+      <canvas id="sigCanvas"></canvas>
+      <div class="sig-btns">
+        <button class="btn-sig" onclick="clearSig()">Wissen</button>
+        <button class="btn-sig save" onclick="saveSig()">Handtekening opslaan ✓</button>
+      </div>
+      <div id="sigStatus" style="margin-top:8px;font-size:12px;color:var(--text3)"></div>
+    </div>
+    <div class="card">
+      <div class="stitle">Akkoordverklaring</div>
+      <p style="font-size:13px;color:var(--text2);line-height:1.6">Door het plaatsen van bovenstaande handtekening verklaart de klant akkoord te gaan met de uitgevoerde werkzaamheden zoals beschreven op deze werkbon.</p>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
+        <input type="date" id="ondertekendOp" style="font-size:13px;padding:7px 10px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg2);color:var(--text);font-family:inherit">
+        <span style="font-size:12px;color:var(--text3)">datum ondertekening</span>
+      </div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn-back" onclick="goStep(2)">←</button>
+      <button class="btn-next" onclick="goStep(4)">Volgende: Versturen →</button>
+    </div>
+  </div>
+
+  <!-- STAP 4: Versturen -->
+  <div id="step4" class="hidden">
+    <div class="card">
+      <div class="stitle">Samenvatting</div>
+      <div id="samenvatting"></div>
+    </div>
+
+    <!-- Google Account sectie -->
+    <div class="card">
+      <div class="stitle">Google account</div>
+      <div id="accountBar" class="hidden"></div>
+      <div id="clientIdSetup" class="hidden">
+        <div class="alert warn" style="margin-bottom:12px">
+          Vul eerst je Google OAuth Client ID in. Zie de instructies hieronder.
+        </div>
+        <div class="field"><label>Google OAuth Client ID</label>
+          <input id="clientIdInput" type="text" placeholder="xxxx.apps.googleusercontent.com">
+        </div>
+        <button class="btn primary" style="width:100%;padding:10px" onclick="saveClientId()">Opslaan &amp; inloggen met Google</button>
+      </div>
+      <div id="loginSection" class="hidden">
+        <button class="google-btn" onclick="doGoogleLogin()">
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 6.293C4.672 4.166 6.656 3.58 9 3.58z"/></svg>
+          Inloggen met Google
+        </button>
+        <button class="btn" style="width:100%;margin-top:8px;font-size:13px;color:var(--text3)" onclick="changeClientId()">Client ID wijzigen</button>
+      </div>
+    </div>
+
+    <!-- Mail opstellen -->
+    <div class="card" id="mailCard">
+      <div class="stitle">E-mail opstellen</div>
+      <div class="field"><label>Onderwerp</label><input id="mailSubject" type="text"></div>
+      <div class="field"><label>Begeleidende tekst</label><textarea id="mailBody" style="min-height:90px"></textarea></div>
+      <div id="sendStatus"></div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="btn-back" onclick="goStep(3)">←</button>
+      <button class="btn" style="padding:12px 14px;white-space:nowrap" onclick="downloadPDFOnly()">⬇ PDF opslaan</button>
+      <button class="btn green" id="btnVerzend" onclick="verzendenGmail()">Versturen via Gmail</button>
+    </div>
+
+    <!-- Setup handleiding -->
+    <div class="card" id="setupCard" style="margin-top:1rem">
+      <div class="stitle">Eenmalige instelling — Google OAuth</div>
+      <div class="setup-step">
+        <div class="setup-num">1</div>
+        <div class="setup-text">Ga naar <strong><a href="https://console.cloud.google.com" target="_blank" style="color:var(--info-text)">console.cloud.google.com</a></strong> en maak een nieuw project aan (bijv. "Werkbon App").</div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-num">2</div>
+        <div class="setup-text">Ga naar <strong>APIs &amp; Services → Library</strong> en zoek op <strong>Gmail API</strong>. Klik op <strong>Enable</strong>.</div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-num">3</div>
+        <div class="setup-text">Ga naar <strong>APIs &amp; Services → OAuth consent screen</strong>. Kies <strong>External</strong>, vul een appnaam in (bijv. "Werkbon"), sla op. Voeg bij <strong>Test users</strong> je eigen Gmail-adres toe.</div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-num">4</div>
+        <div class="setup-text">Ga naar <strong>APIs &amp; Services → Credentials → Create Credentials → OAuth Client ID</strong>. Kies type <strong>Web application</strong>. Voeg bij <strong>Authorized JavaScript origins</strong> toe: <code>null</code> (voor lokaal gebruik) én het adres waarop je de app opent. Klik op <strong>Create</strong>.</div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-num">5</div>
+        <div class="setup-num" style="background:var(--green)">5</div>
+        <div class="setup-text">Kopieer de <strong>Client ID</strong> (eindigt op <code>.apps.googleusercontent.com</code>) en plak die hierboven in het veld. Klik op <strong>Opslaan &amp; inloggen</strong>.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ────────────────────────────────────────────────────
+let currentStep = 0;
+let timerInterval = null, timerSeconds = 0, timerRunning = false;
+let sigSaved = false;
+let materialen = [], tijdvakken = [], totalMinutes = 0;
+let accessToken = null, googleUser = null;
+const CLIENT_ID_KEY = 'werkbon_google_client_id';
+const TOKEN_KEY = 'werkbon_google_token';
+const SCOPES = 'https://www.googleapis.com/auth/gmail.send';
+
+document.getElementById('ondertekendOp').value = new Date().toISOString().split('T')[0];
+
+// ── Navigatie ────────────────────────────────────────────────
+function goStep(n) {
+  document.getElementById('step' + currentStep).classList.add('hidden');
+  document.querySelectorAll('.step').forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i < n) s.classList.add('done');
+    if (i === n) s.classList.add('active');
+  });
+  currentStep = n;
+  document.getElementById('step' + n).classList.remove('hidden');
+  if (n === 3) setTimeout(resizeCanvas, 40);
+  if (n === 4) initStep4();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── XML ──────────────────────────────────────────────────────
+function loadXML(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const xml = new DOMParser().parseFromString(e.target.result, 'text/xml');
+      const g = tag => { const el = xml.querySelector(tag); return el ? el.textContent.trim() : ''; };
+      const s = (id, v) => { if (v) document.getElementById(id).value = v; };
+      s('klantNaam', g('klantNaam') || g('naam') || g('client'));
+      s('klantEmail', g('klantEmail') || g('email'));
+      s('klantTel', g('telefoon') || g('tel'));
+      s('klantRef', g('referentie') || g('opdrachtnummer') || g('ref'));
+      s('werkAdres', g('adres') || g('werklocatie'));
+      s('werkOmschr', g('omschrijving') || g('werkzaamheden'));
+      const bn = g('bonnummer') || g('bonNr');
+      if (bn) document.getElementById('bonNr').textContent = bn;
+      showToast('XML geladen');
+    } catch { showToast('XML kon niet worden geladen'); }
+  };
+  reader.readAsText(file);
+}
+const uz = document.querySelector('.upload-zone');
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.style.borderColor = 'var(--accent)'; });
+uz.addEventListener('dragleave', () => { uz.style.borderColor = ''; });
+uz.addEventListener('drop', e => {
+  e.preventDefault(); uz.style.borderColor = '';
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.xml')) loadXML({ files: [f] });
+});
+
+// ── Timer ────────────────────────────────────────────────────
+function pad(n) { return String(n).padStart(2, '0'); }
+function updateTimerDisp() {
+  const h = Math.floor(timerSeconds / 3600), m = Math.floor((timerSeconds % 3600) / 60), s = timerSeconds % 60;
+  document.getElementById('timerDisp').textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
+}
+function startTimer() {
+  if (timerRunning) return; timerRunning = true;
+  document.getElementById('btnStart').classList.add('hidden');
+  document.getElementById('btnStop').classList.remove('hidden');
+  timerInterval = setInterval(() => { timerSeconds++; updateTimerDisp(); calcTotaalTijd(); }, 1000);
+}
+function stopTimer() {
+  clearInterval(timerInterval); timerRunning = false;
+  document.getElementById('btnStart').classList.remove('hidden');
+  document.getElementById('btnStop').classList.add('hidden');
+}
+function resetTimer() { stopTimer(); timerSeconds = 0; updateTimerDisp(); calcTotaalTijd(); }
+function calcTotaalTijd() {
+  let mins = Math.floor(timerSeconds / 60);
+  tijdvakken.forEach(tv => { mins += (tv.mins || 0); });
+  totalMinutes = mins;
+  const h = Math.floor(mins / 60), m = mins % 60;
+  document.getElementById('totaalTijd').textContent = h + ':' + (m < 10 ? '0' : '') + m + ' uur';
+  const tarief = parseFloat(document.getElementById('uurtarief').value) || 0;
+  document.getElementById('totalArbeid').value = '€ ' + ((totalMinutes / 60) * tarief).toFixed(2);
+  calcKosten();
+}
+function addTijdvak() { tijdvakken.push({ van: '', tot: '', mins: 0 }); renderTijdvakken(); }
+function renderTijdvakken() {
+  const c = document.getElementById('tijdvakken'); c.innerHTML = '';
+  tijdvakken.forEach((tv, i) => {
+    const row = document.createElement('div'); row.className = 'tv-row';
+    row.innerHTML = `<div><label>Van</label><input type="time" value="${tv.van}" onchange="updateTv(${i},'van',this.value)"></div>
+      <div><label>Tot</label><input type="time" value="${tv.tot}" onchange="updateTv(${i},'tot',this.value)"></div>
+      <button class="btn-icon" onclick="removeTv(${i})" style="margin-bottom:2px">✕</button>`;
+    c.appendChild(row);
+  });
+}
+function updateTv(i, key, val) {
+  tijdvakken[i][key] = val;
+  if (tijdvakken[i].van && tijdvakken[i].tot) {
+    const [vh, vm] = tijdvakken[i].van.split(':').map(Number);
+    const [th, tm] = tijdvakken[i].tot.split(':').map(Number);
+    const d = (th * 60 + tm) - (vh * 60 + vm);
+    tijdvakken[i].mins = d > 0 ? d : 0;
+  }
+  calcTotaalTijd();
+}
+function removeTv(i) { tijdvakken.splice(i, 1); renderTijdvakken(); calcTotaalTijd(); }
+
+// ── Materialen ───────────────────────────────────────────────
+function addMateriaal() { materialen.push({ omschr: '', aantal: 1, prijs: 0 }); renderMaterialen(); }
+function renderMaterialen() {
+  const c = document.getElementById('materialenList'); c.innerHTML = '';
+  materialen.forEach((m, i) => {
+    const row = document.createElement('div'); row.className = 'mat-card';
+    row.innerHTML = `<button class="btn-icon" onclick="removeMat(${i})">✕</button>
+      <label>Omschrijving</label>
+      <input type="text" value="${m.omschr}" placeholder="Naam materiaal" oninput="updateMat(${i},'omschr',this.value)">
+      <div class="mat-num">
+        <div><label>Aantal</label><input type="number" value="${m.aantal}" min="0" step="0.1" oninput="updateMat(${i},'aantal',this.value)"></div>
+        <div><label>Prijs per stuk (€)</label><input type="number" value="${m.prijs}" min="0" step="0.01" placeholder="0.00" oninput="updateMat(${i},'prijs',this.value)"></div>
+      </div>`;
+    c.appendChild(row);
+  });
+  calcKosten();
+}
+function updateMat(i, key, val) { materialen[i][key] = key === 'omschr' ? val : (parseFloat(val) || 0); calcKosten(); }
+function removeMat(i) { materialen.splice(i, 1); renderMaterialen(); }
+function calcKosten() {
+  const tarief = parseFloat(document.getElementById('uurtarief').value) || 0;
+  const arbeid = (totalMinutes / 60) * tarief;
+  const mat = materialen.reduce((s, m) => s + m.aantal * m.prijs, 0);
+  document.getElementById('sum1').textContent = '€ ' + arbeid.toFixed(2);
+  document.getElementById('sum2').textContent = '€ ' + mat.toFixed(2);
+  document.getElementById('sum3').textContent = '€ ' + (arbeid + mat).toFixed(2);
+}
+
+// ── Canvas handtekening ──────────────────────────────────────
+const canvas = document.getElementById('sigCanvas');
+const ctx = canvas.getContext('2d');
+let drawing = false;
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width) return;
+  const dpr = window.devicePixelRatio || 1;
+  const old = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  canvas.width = Math.floor(rect.width * dpr);
+  canvas.height = Math.floor(rect.height * dpr);
+  ctx.scale(dpr, dpr);
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  try { ctx.putImageData(old, 0, 0); } catch (e) {}
+}
+window.addEventListener('resize', resizeCanvas);
+function getPos(e) {
+  const r = canvas.getBoundingClientRect(), src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - r.left, y: src.clientY - r.top };
+}
+canvas.addEventListener('mousedown', e => { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+canvas.addEventListener('mousemove', e => { if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
+canvas.addEventListener('mouseup', () => drawing = false);
+canvas.addEventListener('mouseleave', () => drawing = false);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); }, { passive: false });
+canvas.addEventListener('touchend', e => { e.preventDefault(); drawing = false; }, { passive: false });
+function clearSig() { ctx.clearRect(0, 0, canvas.width, canvas.height); sigSaved = false; document.getElementById('sigStatus').textContent = ''; }
+function saveSig() {
+  sigSaved = true;
+  document.getElementById('sigStatus').textContent = '✓ Handtekening opgeslagen om ' + new Date().toLocaleTimeString('nl-NL');
+  document.getElementById('sigStatus').style.color = 'var(--ok-text)';
+}
+
+// ── Stap 4 init ──────────────────────────────────────────────
+function initStep4() {
+  const ref = document.getElementById('klantRef').value || document.getElementById('bonNr').textContent;
+  const naam = document.getElementById('klantNaam').value || 'Klant';
+  const subj = document.getElementById('mailSubject');
+  if (!subj.value) subj.value = 'Werkbon ' + ref;
+  const body = document.getElementById('mailBody');
+  if (!body.value) body.value = 'Geachte ' + naam + ',\n\nHierbij ontvangt u de ondertekende werkbon als bijlage.\n\nMet vriendelijke groet';
+  buildSamenvatting();
+  renderAuthUI();
+}
+
+function buildSamenvatting() {
+  const tarief = parseFloat(document.getElementById('uurtarief').value) || 0;
+  const arbeid = (totalMinutes / 60) * tarief;
+  const mat = materialen.reduce((s, m) => s + m.aantal * m.prijs, 0);
+  const h = Math.floor(totalMinutes / 60), min = totalMinutes % 60;
+  document.getElementById('samenvatting').innerHTML = `
+    <div class="sum-row"><span class="sum-label">Klant</span><span class="sum-val">${document.getElementById('klantNaam').value || '—'}</span></div>
+    <div class="sum-row"><span class="sum-label">E-mail</span><span class="sum-val">${document.getElementById('klantEmail').value || '—'}</span></div>
+    <div class="sum-row"><span class="sum-label">Locatie</span><span class="sum-val">${document.getElementById('werkAdres').value || '—'}</span></div>
+    <div class="sum-row"><span class="sum-label">Werktijd</span><span class="sum-val">${h}:${min < 10 ? '0' : ''}${min} uur</span></div>
+    <div class="sum-row"><span class="sum-label">Totaal excl. BTW</span><span class="sum-val">€ ${(arbeid + mat).toFixed(2)}</span></div>
+    <div class="sum-row"><span class="sum-label">Handtekening</span><span class="sum-val" style="color:${sigSaved ? 'var(--ok-text)' : 'var(--err-text)'}">${sigSaved ? '✓ Aanwezig' : '✗ Nog niet opgeslagen'}</span></div>`;
+}
+
+// ── Google OAuth ─────────────────────────────────────────────
+const HARDCODED_CLIENT_ID = '837120569079-e52p7tifhh3hohvv1agfh5ecjbsjb4of.apps.googleusercontent.com';
+function getClientId() { return HARDCODED_CLIENT_ID; }
+function saveClientId() { doGoogleLogin(); }
+
+function renderAuthUI() {
+  const clientId = getClientId();
+  const ab = document.getElementById('accountBar');
+  const cs = document.getElementById('clientIdSetup');
+  const ls = document.getElementById('loginSection');
+  const sc = document.getElementById('setupCard');
+
+  // Check stored token
+  const stored = sessionStorage.getItem(TOKEN_KEY);
+  if (stored) {
+    try {
+      const t = JSON.parse(stored);
+      if (t.expires > Date.now()) {
+        accessToken = t.token;
+        googleUser = t.user;
+        showAccountBar();
+        cs.classList.add('hidden'); ls.classList.add('hidden'); sc.classList.add('hidden');
+        return;
+      }
+    } catch (e) {}
+    sessionStorage.removeItem(TOKEN_KEY);
+  }
+
+  // Client ID is ingebakken — invoerveld en handleiding altijd verborgen
+  cs.classList.add('hidden');
+  sc.classList.add('hidden');
+  ab.classList.add('hidden');
+  ls.classList.remove('hidden');
+}
+
+function showAccountBar() {
+  const ab = document.getElementById('accountBar');
+  const initials = (googleUser || 'G').split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  ab.className = 'account-bar';
+  ab.innerHTML = `
+    <div class="account-avatar">${initials}</div>
+    <div class="account-info">
+      <div class="account-name">${googleUser || 'Google account'}</div>
+      <div class="account-email">Ingelogd — klaar om te versturen</div>
+    </div>
+    <button class="btn-icon" onclick="logoutGoogle()" title="Uitloggen" style="font-size:12px;color:var(--ok-text)">✕</button>`;
+  ab.classList.remove('hidden');
+  // Toon kleine "Client ID wijzigen" link onder de balk
+  const existing = document.getElementById('changeClientBtn');
+  if (!existing) {
+    const link = document.createElement('button');
+    link.id = 'changeClientBtn';
+    link.className = 'btn';
+    link.style.cssText = 'width:100%;margin-top:8px;font-size:12px;color:var(--text3);padding:6px';
+    link.textContent = 'Client ID wijzigen';
+    link.onclick = changeClientId;
+    ab.parentNode.appendChild(link);
+  }
+}
+
+function changeClientId() {
+  localStorage.removeItem(CLIENT_ID_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  accessToken = null; googleUser = null;
+  // Verwijder eventuele "wijzigen" knop
+  const btn = document.getElementById('changeClientBtn');
+  if (btn) btn.remove();
+  // Vul het invoerveld alvast met de huidige (foute) waarde zodat je makkelijk kunt aanpassen
+  const current = localStorage.getItem(CLIENT_ID_KEY) || '';
+  document.getElementById('clientIdInput').value = current;
+  renderAuthUI();
+}
+
+function doGoogleLogin() {
+  const clientId = getClientId();
+  if (!clientId) { showAlert('Vul eerst een Client ID in', 'err'); return; }
+  const redirectUri = location.href.split('?')[0].split('#')[0];
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem('oauth_state', state);
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'token',
+    scope: SCOPES + ' https://www.googleapis.com/auth/userinfo.email',
+    state: state,
+    prompt: 'consent'
+  });
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
+}
+
+function handleOAuthCallback() {
+  const hash = window.location.hash.slice(1);
+  if (!hash.includes('access_token')) return;
+  const params = new URLSearchParams(hash);
+  const token = params.get('access_token');
+  const expiresIn = parseInt(params.get('expires_in') || '3600');
+  const state = params.get('state');
+  if (state && state !== sessionStorage.getItem('oauth_state')) { showToast('Ongeldige OAuth state'); return; }
+  if (!token) return;
+  accessToken = token;
+  history.replaceState(null, '', location.pathname);
+  // Fetch user info
+  fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: 'Bearer ' + token } })
+    .then(r => r.json())
+    .then(info => {
+      googleUser = info.name || info.email || 'Google gebruiker';
+      sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ token, expires: Date.now() + expiresIn * 1000 - 60000, user: googleUser }));
+      goStep(4);
+    })
+    .catch(() => { googleUser = 'Google gebruiker'; goStep(4); });
+}
+
+function logoutGoogle() {
+  accessToken = null; googleUser = null;
+  sessionStorage.removeItem(TOKEN_KEY);
+  renderAuthUI();
+}
+
+// ── PDF bouwen ────────────────────────────────────────────────
+function buildPDF() {
+  try {
+    const { jsPDF } = window.jspdf;
+    const naam = document.getElementById('klantNaam').value || 'Klant';
+    const ref = document.getElementById('klantRef').value || document.getElementById('bonNr').textContent;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const lm = 20, rm = 190, pw = 170;
+
+    doc.setFillColor(245, 245, 243);
+    doc.rect(0, 0, 210, 35, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(30, 30, 28);
+    doc.text('WERKBON', lm, 20);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 100, 98);
+    doc.text(document.getElementById('bonNr').textContent, rm, 20, { align: 'right' });
+    doc.text('Datum: ' + document.getElementById('ondertekendOp').value, rm, 27, { align: 'right' });
+    doc.setDrawColor(220, 220, 218); doc.line(lm, 32, rm, 32);
+
+    let y = 42;
+    const section = t => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(140, 140, 138);
+      doc.text(t.toUpperCase(), lm, y); y += 5;
+      doc.setDrawColor(220, 220, 218); doc.line(lm, y, rm, y); y += 5;
+    };
+    const field = (label, val) => {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+      doc.setTextColor(100, 100, 98); doc.text(label + ':', lm, y);
+      doc.setTextColor(30, 30, 28);
+      const lines = doc.splitTextToSize(val || '—', pw - 50);
+      doc.text(lines, lm + 45, y); y += 6 * lines.length + 1;
+    };
+
+    section('Klantgegevens');
+    field('Klant', document.getElementById('klantNaam').value);
+    field('E-mail', document.getElementById('klantEmail').value);
+    field('Telefoon', document.getElementById('klantTel').value);
+    field('Referentie', document.getElementById('klantRef').value);
+    field('Locatie', document.getElementById('werkAdres').value);
+    y += 4;
+
+    section('Werkzaamheden');
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(30, 30, 28);
+    const omLines = doc.splitTextToSize(document.getElementById('werkOmschr').value || '—', pw);
+    doc.text(omLines, lm, y); y += 6 * omLines.length + 6;
+
+    section('Tijdregistratie & Kosten');
+    const tarief = parseFloat(document.getElementById('uurtarief').value) || 0;
+    const arbeid = (totalMinutes / 60) * tarief;
+    const h = Math.floor(totalMinutes / 60), min = totalMinutes % 60;
+    field('Werktijd', h + ':' + (min < 10 ? '0' : '') + min + ' uur');
+    field('Uurtarief', '€ ' + tarief.toFixed(2));
+    field('Totaal arbeid', '€ ' + arbeid.toFixed(2));
+    y += 2;
+
+    if (materialen.length > 0) {
+      section('Materialen');
+      materialen.forEach(m => {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(30, 30, 28);
+        doc.text(`${m.omschr}  —  ${m.aantal}x à €${parseFloat(m.prijs).toFixed(2)}  =  €${(m.aantal * m.prijs).toFixed(2)}`, lm, y);
+        y += 6;
+      });
+      y += 2;
+    }
+
+    const mat = materialen.reduce((s, m) => s + m.aantal * m.prijs, 0);
+    doc.setFillColor(245, 245, 243);
+    doc.rect(lm - 2, y - 2, pw + 4, 16, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30, 30, 28);
+    doc.text('Totaal excl. BTW', lm + 2, y + 7);
+    doc.text('€ ' + (arbeid + mat).toFixed(2), rm - 2, y + 7, { align: 'right' });
+    y += 22;
+
+    if (sigSaved) {
+      section('Handtekening klant');
+      doc.addImage(canvas.toDataURL('image/png'), 'PNG', lm, y, 70, 28);
+      y += 32;
+      doc.setDrawColor(180, 180, 178); doc.line(lm, y, lm + 70, y);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(120, 120, 118);
+      doc.text(naam + ' — ' + document.getElementById('ondertekendOp').value, lm, y + 4);
+    }
+    return doc;
+  } catch (e) {
+    console.error(e); showToast('PDF aanmaken mislukt'); return null;
+  }
+}
+
+function downloadPDFOnly() {
+  const doc = buildPDF(); if (!doc) return;
+  const ref = document.getElementById('klantRef').value || document.getElementById('bonNr').textContent;
+  doc.save('Werkbon_' + ref.replace(/[^a-z0-9]/gi, '_') + '.pdf');
+  showToast('PDF opgeslagen');
+}
+
+// ── Gmail verzenden via API ───────────────────────────────────
+async function verzendenGmail() {
+  if (!accessToken) { showAlert('Log eerst in met je Google account.', 'warn'); return; }
+  const to = document.getElementById('klantEmail').value;
+  if (!to) { showToast('Vul eerst een e-mailadres in'); return; }
+
+  const ref = document.getElementById('klantRef').value || document.getElementById('bonNr').textContent;
+  const subject = document.getElementById('mailSubject').value || ('Werkbon ' + ref);
+  const bodyText = document.getElementById('mailBody').value;
+  const filename = 'Werkbon_' + ref.replace(/[^a-z0-9]/gi, '_') + '.pdf';
+
+  const doc = buildPDF(); if (!doc) return;
+  const pdfBase64 = doc.output('datauristring').split(',')[1];
+
+  const btn = document.getElementById('btnVerzend');
+  btn.disabled = true; btn.textContent = 'Bezig...';
+  showAlert('Werkbon wordt verstuurd...', 'info');
+
+  try {
+    // Bouw MIME e-mail met bijlage
+    const boundary = 'werkbon_' + Date.now();
+    const mime = [
+      'MIME-Version: 1.0',
+      `To: ${to}`,
+      `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: base64',
+      '',
+      btoa(unescape(encodeURIComponent(bodyText))),
+      '',
+      `--${boundary}`,
+      `Content-Type: application/pdf; name="${filename}"`,
+      'Content-Transfer-Encoding: base64',
+      `Content-Disposition: attachment; filename="${filename}"`,
+      '',
+      pdfBase64,
+      '',
+      `--${boundary}--`
+    ].join('\r\n');
+
+    // Base64url encode de volledige MIME string
+    const encoded = btoa(unescape(encodeURIComponent(mime)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+    const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + accessToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ raw: encoded })
+    });
+
+    if (resp.ok) {
+      showAlert('✓ Werkbon verstuurd naar ' + to, 'ok');
+      showToast('Verstuurd!');
+    } else {
+      const err = await resp.json();
+      if (resp.status === 401) {
+        logoutGoogle();
+        showAlert('Sessie verlopen. Log opnieuw in met Google.', 'warn');
+      } else {
+        throw new Error(err.error?.message || 'Fout ' + resp.status);
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    showAlert('Fout bij versturen: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Versturen via Gmail';
+  }
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function showAlert(msg, type) {
+  const el = document.getElementById('sendStatus');
+  el.innerHTML = `<div class="alert ${type}" style="margin-top:10px">${msg}</div>`;
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+// ── Init ─────────────────────────────────────────────────────
+addMateriaal();
+addTijdvak();
+handleOAuthCallback(); // verwerk OAuth redirect als die er is
+</script>
+</body>
+</html>
