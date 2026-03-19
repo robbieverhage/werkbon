@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Werkbon App</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -541,6 +542,8 @@ function renderAuthUI() {
   sc.classList.add('hidden');
   ab.classList.add('hidden');
   ls.classList.remove('hidden');
+  // Wis eventuele oude foutmeldingen
+  document.getElementById('sendStatus').innerHTML = '';
 }
 
 function showAccountBar() {
@@ -581,43 +584,52 @@ function changeClientId() {
   renderAuthUI();
 }
 
+let tokenClient = null;
+
 function doGoogleLogin() {
   const clientId = getClientId();
   if (!clientId) { showAlert('Vul eerst een Client ID in', 'err'); return; }
-  const redirectUri = location.href.split('?')[0].split('#')[0];
-  const state = Math.random().toString(36).slice(2);
-  sessionStorage.setItem('oauth_state', state);
-  const params = new URLSearchParams({
+
+  if (!window.google) {
+    showAlert('Google library laadt nog, probeer opnieuw.', 'warn'); return;
+  }
+
+  tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: 'token',
     scope: SCOPES + ' https://www.googleapis.com/auth/userinfo.email',
-    state: state,
-    prompt: 'consent'
+    callback: (resp) => {
+      if (resp.error) {
+        showAlert('Inloggen mislukt: ' + resp.error, 'err'); return;
+      }
+      accessToken = resp.access_token;
+      const expiresIn = resp.expires_in || 3600;
+      fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: 'Bearer ' + accessToken }
+      })
+        .then(r => r.json())
+        .then(info => {
+          googleUser = info.name || info.email || 'Google gebruiker';
+          sessionStorage.setItem(TOKEN_KEY, JSON.stringify({
+            token: accessToken,
+            expires: Date.now() + expiresIn * 1000 - 60000,
+            user: googleUser
+          }));
+          showAccountBar();
+          document.getElementById('loginSection').classList.add('hidden');
+          document.getElementById('clientIdSetup').classList.add('hidden');
+          document.getElementById('setupCard').classList.add('hidden');
+        })
+        .catch(() => {
+          googleUser = 'Google gebruiker';
+          showAccountBar();
+        });
+    }
   });
-  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
+  tokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
 function handleOAuthCallback() {
-  const hash = window.location.hash.slice(1);
-  if (!hash.includes('access_token')) return;
-  const params = new URLSearchParams(hash);
-  const token = params.get('access_token');
-  const expiresIn = parseInt(params.get('expires_in') || '3600');
-  const state = params.get('state');
-  if (state && state !== sessionStorage.getItem('oauth_state')) { showToast('Ongeldige OAuth state'); return; }
-  if (!token) return;
-  accessToken = token;
-  history.replaceState(null, '', location.pathname);
-  // Fetch user info
-  fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: 'Bearer ' + token } })
-    .then(r => r.json())
-    .then(info => {
-      googleUser = info.name || info.email || 'Google gebruiker';
-      sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ token, expires: Date.now() + expiresIn * 1000 - 60000, user: googleUser }));
-      goStep(4);
-    })
-    .catch(() => { googleUser = 'Google gebruiker'; goStep(4); });
+  // Niet meer nodig met GIS — lege functie voor compatibiliteit
 }
 
 function logoutGoogle() {
