@@ -320,7 +320,7 @@ let materialen = [], tijdvakken = [], totalMinutes = 0;
 let accessToken = null, googleUser = null;
 const CLIENT_ID_KEY = 'werkbon_google_client_id';
 const TOKEN_KEY = 'werkbon_google_token';
-const SCOPES = 'https://www.googleapis.com/auth/gmail.send';
+const SCOPES = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email';
 
 document.getElementById('ondertekendOp').value = new Date().toISOString().split('T')[0];
 
@@ -596,7 +596,7 @@ function doGoogleLogin() {
 
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: clientId,
-    scope: SCOPES + ' https://www.googleapis.com/auth/userinfo.email',
+    scope: SCOPES,
     callback: (resp) => {
       if (resp.error) {
         showAlert('Inloggen mislukt: ' + resp.error, 'err'); return;
@@ -625,7 +625,7 @@ function doGoogleLogin() {
         });
     }
   });
-  tokenClient.requestAccessToken({ prompt: 'consent' });
+  tokenClient.requestAccessToken({ prompt: 'consent', include_granted_scopes: false });
 }
 
 function handleOAuthCallback() {
@@ -751,32 +751,41 @@ async function verzendenGmail() {
 
   try {
     // Bouw MIME e-mail met bijlage
-    const boundary = 'werkbon_' + Date.now();
-    const mime = [
+    const boundary = 'werkbon' + Date.now();
+    const subjectEncoded = '=?UTF-8?B?' + btoa(unescape(encodeURIComponent(subject))) + '?=';
+    const bodyB64 = btoa(unescape(encodeURIComponent(bodyText)));
+
+    // Bouw MIME als array van regels, joined met CRLF
+    const lines = [
       'MIME-Version: 1.0',
-      `To: ${to}`,
-      `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
-      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      'To: ' + to,
+      'Subject: ' + subjectEncoded,
+      'Content-Type: multipart/mixed; boundary="' + boundary + '"',
       '',
-      `--${boundary}`,
+      '--' + boundary,
       'Content-Type: text/plain; charset="UTF-8"',
       'Content-Transfer-Encoding: base64',
       '',
-      btoa(unescape(encodeURIComponent(bodyText))),
+      bodyB64,
       '',
-      `--${boundary}`,
-      `Content-Type: application/pdf; name="${filename}"`,
+      '--' + boundary,
+      'Content-Type: application/pdf; name="' + filename + '"',
       'Content-Transfer-Encoding: base64',
-      `Content-Disposition: attachment; filename="${filename}"`,
+      'Content-Disposition: attachment; filename="' + filename + '"',
       '',
       pdfBase64,
       '',
-      `--${boundary}--`
-    ].join('\r\n');
+      '--' + boundary + '--'
+    ];
+    const mime = lines.join('\r\n');
 
-    // Base64url encode de volledige MIME string
-    const encoded = btoa(unescape(encodeURIComponent(mime)))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    // Converteer naar Uint8Array en dan naar base64url
+    const encoder = new TextEncoder();
+    const mimeBytes = encoder.encode(mime);
+    let binary = '';
+    mimeBytes.forEach(b => binary += String.fromCharCode(b));
+    const encoded = btoa(binary)
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 
     const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
       method: 'POST',
